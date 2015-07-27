@@ -1,0 +1,428 @@
+// Global Variables
+var clientpaths = [];
+var uiFiles;
+
+var files = [];
+var filesName = []; // Array Of File Names
+var filesSize = []; // Array Of File Sizes
+var filesIndex = 0; // Index For Bookkeeping
+
+var debugExpanded = false; // Debug Menu Expanded Or Not
+var percentComplete = 0; // For The Loading Bar
+var uploading = -1; // Curently Uploading File (-1 = None)
+var uploaded = 0; // Uploaded Files (Deleted) For Bookkeeping
+var managerInUse = false; // Only Run File Manager Once Per File
+
+// -----Tools-----
+
+// Show/Hide Debug Data
+function debugChange() {
+	// Check State and Change Style Accordingly
+	if (debugExpanded === false) {
+		document.getElementById("debug").style.height = '200px';
+		debugExpanded = true;
+	} else {
+		document.getElementById("debug").style.height = '0px';
+		debugExpanded = false;
+	}
+}
+
+// Report Debug Text
+function echo(data) {
+	// Good practice
+	"use strict";
+	document.getElementById('debug').innerHTML = document.getElementById('debug').innerHTML + '<br>' + data;
+}
+
+// Add Two Numbers For Output
+function add(input, amount) {
+	// Good practice
+	"use strict";
+
+	var output;
+
+	output = input + amount;
+	return output;
+}
+
+// -----GUI Stuff-----
+
+// Make File Size Human Readable
+function formatBytes(bytes, precision) {
+	// Good Practice
+	"use strict";
+
+	var hbytes, suffix;
+
+	if (bytes < Math.pow(1024, 1)) {
+		hbytes = bytes;
+		suffix = "B";
+	} else if (bytes < Math.pow(1024, 2)) {
+		hbytes = bytes / Math.pow(1024, 1);
+		suffix = "kB";
+	} else if (bytes < Math.pow(1024, 3)) {
+		hbytes = bytes / Math.pow(1024, 2);
+		suffix = "MB";
+	} else if (bytes < Math.pow(1024, 4)) {
+		hbytes = bytes / Math.pow(1024, 3);
+		suffix = "GB";
+	} else {
+		hbytes = bytes / Math.pow(1024, 4);
+		suffix = "TB";
+	}
+
+	hbytes = hbytes.toFixed(precision);
+
+	return hbytes + suffix;
+}
+
+// Add Files To File List
+function uiAddFile(file) {
+	// Good Practice
+	"use strict";
+
+	echo('Creating File List For File: ' + filesName[filesIndex] + ' (' + filesSize[filesIndex] + ')');
+
+	var uiFile = '<li id="' + filesName[filesIndex] + '"><div class="filetext"><span class="file_name">' + filesName[filesIndex] + '</span><span class="file_spacer">SPACER</span><span class="fileinfo">' + formatBytes(filesSize[filesIndex], 1) + '</span></div><div class="progress_shell"><div class="progress_bar"></div></div></li>';
+	uiFiles.innerHTML = uiFiles.innerHTML + uiFile;
+}
+
+// Color File Bar
+function uiFileColor(fileIndex, color, hideBar) {
+	// Good Practice
+	"use strict";
+
+	var uiFile = uiFiles.childNodes[fileIndex];
+	uiFile.style.background = color;
+	uiFile.getElementsByClassName("progress_shell")[0].style.background = color; //hide progress bar
+
+	// Remove File Bar	
+	if (hideBar) {
+		// Report Removal
+		echo('Removing File Element #' + add(uploaded, 1));
+
+		// Remove The File Bar
+		uiFile.parentElement.removeChild(uiFile);
+
+		// Move On To The Next File
+		uploaded = uploaded + 1;
+
+		// Allow Upload Mannager To Run
+		managerInUse = false;
+	}
+}
+
+// -----Sensor Stuff-----
+
+// Detect Drag Enter
+function dragenter(e) {
+	// Good Practice
+	"use strict";
+	e.preventDefault();
+}
+
+// Detect Drag Leave
+function dragleave(e) {
+	// Good Practice
+	"use strict";
+	e.preventDefault();
+}
+
+// Detect Drag Over
+function dragover(e) {
+	// Good Practice
+	"use strict";
+	e.preventDefault();
+}
+
+// Trigger Changes
+function updateProgress(evt) {
+	// Good Practice
+	"use strict";
+
+	var uiFile, progress_shell, progress_bar;
+	uiFile = uiFiles.childNodes[uploading + 1];
+
+	percentComplete = evt.loaded / evt.total;
+	progress_shell = uiFile.getElementsByClassName("progress_shell")[0];
+	progress_bar = uiFile.getElementsByClassName("progress_bar")[0];
+		
+	if (percentComplete < 0.90) {
+		progress_bar.style.width = progress_shell.clientWidth * percentComplete + 'px';
+	} else {
+		progress_bar.style.width = progress_shell.clientWidth + 2 + 'px';
+		progress_bar.style.borderRadius = '10px';
+		progress_bar.style.MozBorderRadius = '10px';
+	}
+}
+
+// Upload Complete
+function transferComplete(evt) {
+	// Good Practice
+	"use strict";
+
+	// Mark Current File As Uploaded
+	files[uploading].uploaded = true;
+
+	// Remove File Bar
+	uiFileColor(uploading + 1, '#336', true);
+
+	// Reset Uploading
+	uploading = -1;
+
+	// Do Another Check For Files
+	setTimeout("uploadManager();", 100);
+}
+
+// Upload Failed
+function transferFailed(evt) {
+	// Good Practice
+	"use strict";
+
+	// Report Failure
+	echo('Upload Failed! #' + add(uploaded, 1));
+
+	// Mark as Being Uploaded For Now (Skip to Next File)
+	files[uploading].uploaded = true;
+
+	// Don't Hide the File Bar
+	uiFileColor(uploading + 1, '#633', false);
+
+	// Reset Uploading
+	uploading = -1;
+
+	// Do Another Check For Files
+	setTimeout("uploadManager();", 100);
+}
+
+function transferCanceled(evt) {
+	// Good practice
+	"use strict";
+
+	files[uploading].uploaded = true; //mark as being uploaded for now
+
+	uiFileColor(uploading + 1, '#663', false);
+	uploading = -1; //reset
+	echo("Error: Transfer canceled.");
+}
+
+function stateChange() {
+	// Good practice
+	"use strict";
+
+	if (httpObject.readyState === 4) { //server response when transfer completes
+		if (!httpObject.responseText === "OK") {
+			echo("Sever Side Error: " + httpObject.responseText);
+		}
+	}
+}
+
+/****** File List ******/
+// Send out request, handle response
+function sendData(file) {
+	// Good Practice
+	"use strict";
+
+	echo('Sending Data Request');
+
+	var postUrl;
+	var httpObject = new XMLHttpRequest();
+	postUrl = 'uploader.php';
+
+	httpObject.upload.addEventListener("progress", updateProgress, false);
+	httpObject.upload.addEventListener("load", transferComplete, false);
+	httpObject.upload.addEventListener("error", transferFailed, false);
+	httpObject.upload.addEventListener("abort", transferCanceled, false);
+
+	if (httpObject !== null) {
+		echo('HTTP Object Exists');
+		httpObject.open("POST", postUrl, true);
+		httpObject.setRequestHeader("Cache-Control", "no-cache");
+		httpObject.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+
+		// Compatablity with Firefox/Chrome
+		httpObject.setRequestHeader("X-File-Name", filesName[uploaded]);
+
+		// Compatablity with Firefox/Chrome
+		httpObject.setRequestHeader("X-File-Size", filesSize[uploaded]);
+
+		//httpObject.setRequestHeader("Content-Length", file.size);
+		httpObject.setRequestHeader("Content-Length", filesSize[uploaded]);
+		httpObject.setRequestHeader("Content-Type", "multipart/form-data");
+		httpObject.setRequestHeader("clientpath", file.clientpath);
+		httpObject.onreadystatechange = stateChange;
+		httpObject.send(file);
+
+		// Report Sending Data
+		echo('Sending Data For File: ' + filesName[uploaded]);
+	}
+}
+
+// Get File Name/Size First
+function fileInfo(file) {
+	// Good Practice
+	"use strict";
+
+	var postUrl;
+	var httpObject = new XMLHttpRequest();
+	postUrl = 'uploader.php';
+
+	if (httpObject !== null) {
+		httpObject.open("POST", postUrl, true);
+		
+		// Compatablity with Firefox/Chrome
+		httpObject.setRequestHeader("X-File-Name", file.name);
+		httpObject.setRequestHeader("X-File-Name", file.fileName);
+		filesName[filesIndex] = file.name || file.fileName;
+		
+		httpObject.setRequestHeader("X-File-Size", file.size);
+		httpObject.setRequestHeader("X-File-Size", file.fileSize);
+		filesSize[filesIndex] = file.size || file.fileSize;
+	}
+}
+
+
+// Checks For Not Yet Uploaded Files
+function uploadManager() {
+	// Good Practice
+	"use strict";
+
+	if (managerInUse === false) {
+		// Report Startup
+		echo('"uploadManager" Started');
+
+		// Set Mannager to be in Use
+		managerInUse = true;
+
+		// Check That Upload Makes Sense
+		if (add(uploaded, 1) <= files.length) {
+
+			// Report Which File is Uploading Out of Total		
+			echo('Uploading File ' + add(uploaded, 1) + ' of ' + files.length);
+
+			// The First File is Always Uploading (For Now)
+			uploading = 0;
+
+			// Send The File Data
+			sendData(files[uploaded]);
+
+		} else {
+			// Report End of Files
+			echo('No Files Found');
+
+			files = [];
+			filesName = [];
+			filesSize = [];
+			filesIndex = 0;
+			uploaded = 0;
+			
+			// Restore Idle Message
+			document.getElementById("info").style.opacity = '0.1'; //MOZ OPACITY VS IE?
+
+			// Allow Upload Mannager To Run
+			managerInUse = false;
+		}
+	}
+}
+
+function addFile(file) {
+	// Good Practice
+	"use strict";
+
+	var i;
+
+	// Remove Idle Message
+	document.getElementById("info").style.opacity = '0';
+	
+	echo('"addFile" Triggered');
+
+	echo('Files Added: ' + file.length);
+
+// files don't always start at i=0! need to fix this to keep track of which file we're at...
+	echo('filesLengthA ' + file.length);
+	echo('filesIndexA ' + filesIndex);
+	for (i = 0; i < file.length; i = i + 1) {
+		file[i].uploaded = false;
+		files.push(file[i]);
+		fileInfo(file[i]);
+		uiAddFile(file[i]);
+		filesIndex = filesIndex + 1;	
+
+		echo('file.name ' + filesName[i]);
+		echo('file.length ' + file.length);
+	}
+
+	// Start Uploading
+	uploadManager();
+}
+
+// When Item is Dropped Into Dropbox
+function drop(e) {
+	// Good Practice
+	"use strict";
+
+	e.preventDefault();
+
+	var i, dt;
+	dt = e.dataTransfer;
+
+	clientpaths = "";
+	for (i = 0; i < dt.files.length; i = i + 1) {
+		dt.files[i].clientpath = clientpaths[i];
+	}
+	addFile(dt.files);
+}
+
+
+/****** Manually add files ******/
+function filesSelected() {
+	// Good practice
+	"use strict";
+
+	addFile(document.getElementById('fileSelector').files);
+	echo('"addFile" Updated');
+}
+
+function initFileSelector() {
+	// Good Practice
+	"use strict";
+
+	document.getElementById('fileSelector').addEventListener("change", filesSelected, false);
+	echo('Added Event Listeners "filesSelected"');
+}
+
+// Drag and Drop Files
+function initDropZone() {
+	// Good Practice
+	"use strict";
+
+	// Expand Debug Info on Click
+	document.getElementById('info').addEventListener("click", debugChange, false);
+
+	// Add All Event Listeners
+	window.addEventListener("dragenter", dragenter, true);
+	echo('Added Event Listeners "dragenter"');
+	window.addEventListener("dragleave", dragleave, true);
+	echo('Added Event Listeners "dragleave"');
+	window.addEventListener("dragover", dragover, true);
+	echo('Added Event Listeners "dragover"');
+	window.addEventListener("drop", drop, true);
+	echo('Added Event Listeners "drop"');
+}
+
+// Initialize Page
+function init() {
+	// Good Practice
+	"use strict";
+
+	echo('CONECTED');
+	echo('Init. DropZone...');
+	initDropZone();
+	echo('Init. FileSelector...');
+	initFileSelector();
+	echo('Setup uiFiles...');
+	uiFiles = document.getElementById('files');
+}
+
+// Start The Script
+window.onload = init;
