@@ -1,0 +1,27 @@
+html, body			{margin:0; padding:0; height:100%;}
+a					{text-decoration: none;}
+a:hover				{opacity:0.9; filter:alpha(opacity=90);}
+
+#bottomBox			{display: block; position: absolute; bottom: 1px; width: 400px; text-align: left;}
+#uploads			{height: 95%; overflow: hidden;}
+	#uploads .textBox	{position: absolute; width: 100%; top: 40%;}
+	#uploads .text		{display: block; margin-left: auto; margin-right: auto; opacity: 0.1; filter:alpha(opacity=10);}
+#info				{display: block; margin-left: auto; margin-right: auto; opacity: 0.1; filter:alpha(opacity=10); width: 100px; height: 100px;}
+#debug				{height: 0px; overflow-x: hidden; margin-top: 15px;}
+#files				{display: block; margin-left: auto; margin-right: auto; text-align: center;}
+
+ul				{margin: 0px; padding: 0px;}
+li				{list-style-type: none; font-family: arial; background: #EEEEEE; border: 1px solid #DDDDDD; -moz-border-radius: 10px; border-radius: 10px; margin: 6px 10px 6px 10px; padding-top: 1px;}
+
+
+.filetext			{font-size: 12px; margin: 4px 16px 4px 16px;}
+
+.fileinfo			{float: right;}
+
+.file_spacer		{opacity: 0; filter:alpha(opacity=0);}
+
+.file_name			{float: left;}
+
+.progress_shell			{margin-top: -24px; margin-left: -1px; width: 100%; height: 24px;}
+
+.progress_bar			{width: 0px; height: 24px; background-color: #000000; opacity: 0.1; filter:alpha(opacity=0.1); -moz-top-left-border-radius: 10px; border-top-left-radius: 10px; -moz-bottom-left-border-radius: 10px; border-bottom-left-radius: 10px;}
